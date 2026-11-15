@@ -1,0 +1,7 @@
+trial,group,binary_reward,dense_reward,binary_advantage,dense_advantage
+baseline_489kKTT,baseline,1.0,1.0,0.3333,0.2333
+baseline_FSvhiuw,baseline,0.0,0.3,-0.6667,-0.4667
+baseline_TNEzoQu,baseline,1.0,1.0,0.3333,0.2333
+ablation_2tHFABd,ablation,1.0,1.0,0.0,0.0
+ablation_JKQxwY4,ablation,1.0,1.0,0.0,0.0
+ablation_yuxnS7h,ablation,1.0,1.0,0.0,0.0

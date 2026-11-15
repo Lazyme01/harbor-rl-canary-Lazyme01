@@ -1,0 +1,76 @@
+[
+  {
+    "tool_call_id": "call_0_1",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "ls -la /app\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_0_2",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "sed -n '1,200p' /app/reconcile.py\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_1_1",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "cat > /app/reconcile.py <<'EOF'\nimport argparse\nimport csv\nimport json\nimport sys\nfrom datetime import datetime, timezone\nfrom decimal import Decimal, InvalidOperation\n\nCOLUMNS = [\"tx_id\", \"timestamp\", \"amount\", \"status\"]\nSTATUSES = {\"success\", \"failed\", \"pending\"}\n\n\ndef parse_timestamp(value: str) -> datetime:\n    # Accept ISO‑8601 with optional Z suffix; convert to aware datetime\n    dt = datetime.fromisoformat(value.replace(\"Z\", \"+00:00\"))\n    if dt.tzinfo is None or dt.utcoffset() is None:\n        raise ValueError(f\"timestamp must include a timezone: {value}\")\n    # Normalise to UTC for reliable comparison\n    return dt.astimezone(timezone.utc)\n\n\ndef reconcile(path: str):\n    latest: dict[str, tuple[datetime, Decimal, str]] = {}\n    with open(path, newline=\"\", encoding=\"utf-8-sig\") as stream:\n        reader = csv.DictReader(stream)\n        if reader.fieldnames != COLUMNS:\n            raise ValueError(f\"CSV header must be exactly {','.join(COLUMNS)}\")\n        for raw_row in reader:\n            # Skip completely blank lines\n            if not any(raw_row.values()):\n                continue\n            # Ensure row has all columns\n            if None in raw_row or any(v is None for v in raw_row.values()):\n                raise ValueError(\"row has a different number of columns\")\n            tx_id = raw_row[\"tx_id\"].strip()\n            if not tx_id:\n                raise ValueError(\"tx_id must not be empty\")\n            timestamp = parse_timestamp(raw_row[\"timestamp\"].strip())\n            try:\n                amount = Decimal(raw_row[\"amount\"].strip())\n            except InvalidOperation as err:\n                raise ValueError(f\"invalid amount: {raw_row['amount']}\") from err\n            if not amount.is_finite() or amount < 0:\n                raise ValueError(\"amount must be finite and nonnegative\")\n            status = raw_row[\"status\"].strip()\n            if status not in STATUSES:\n                raise ValueError(f\"invalid status: {status}\")\n            # Keep the later timestamp; if equal, later CSV row wins (use >=)\n            if tx_id not in latest or timestamp >= latest[tx_id][0]:\n                latest[tx_id] = (timestamp, amount, status)\n\n    total = Decimal(0)\n    valid_count = 0\n    failed_count = 0\n    for _, amount, status in latest.values():\n        if status == \"success\":\n            total += amount\n            valid_count += 1\n        elif status == \"failed\":\n            failed_count += 1\n        # pending rows are ignored\n    return total, valid_count, failed_count\n\n\ndef main():\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"csv_path\")\n    args = parser.parse_args()\n    try:\n        total, valid_count, failed_count = reconcile(args.csv_path)\n    except (OSError, ValueError) as error:\n        print(error, file=sys.stderr)\n        return 2\n    # Produce JSON with numeric fields\n    result = {\n        \"total_valid_amount\": float(total),\n        \"valid_count\": valid_count,\n        \"failed_count\": failed_count,\n    }\n    print(json.dumps(result))\n    return 0\n\n\nif __name__ == \"__main__\":\n    sys.exit(main())\nEOF\n",
+      "duration": 2.0
+    }
+  },
+  {
+    "tool_call_id": "call_1_2",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 /app/reconcile.py /app/reconcile.py\n",
+      "duration": 1.0
+    }
+  },
+  {
+    "tool_call_id": "call_2_1",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "cat > /app/sample.csv <<'EOF'\ntx_id,timestamp,amount,status\nabc123,2023-01-01T12:00:00+00:00,100.00,success\nabc123,2023-01-02T12:00:00+00:00,150.00,failed\nxyz789,2023-01-01T13:30:00+02:00,200.50,success\n\nlmn456,2023-01-03T09:15:00Z,50.25,pending\nEOF\n",
+      "duration": 0.5
+    }
+  },
+  {
+    "tool_call_id": "call_2_2",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 /app/reconcile.py /app/sample.csv\n",
+      "duration": 0.5
+    }
+  },
+  {
+    "tool_call_id": "call_2_3",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "cat > /app/bad.csv <<'EOF'\nwrong,header,here\n1,2,3\nEOF\n",
+      "duration": 0.5
+    }
+  },
+  {
+    "tool_call_id": "call_2_4",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 /app/reconcile.py /app/bad.csv\n",
+      "duration": 0.5
+    }
+  },
+  {
+    "tool_call_id": "call_3_task_complete",
+    "function_name": "mark_task_complete",
+    "arguments": {}
+  },
+  {
+    "tool_call_id": "call_4_task_complete",
+    "function_name": "mark_task_complete",
+    "arguments": {}
+  }
+]

@@ -1,0 +1,92 @@
+[
+  {
+    "tool_call_id": "call_0_1",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "ls -la\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_0_2",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "sed -n '1,200p' reconcile.py\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_0_3",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "cat > reconcile_fixed.py << 'EOF'\nimport sys, csv, json, decimal, datetime, re\n\ndef parse_timestamp(ts):\n    # Parse ISO8601 with timezone, convert to UTC datetime\n    # datetime.fromisoformat handles offsets in Python 3.11+, fallback with regex\n    try:\n        dt = datetime.datetime.fromisoformat(ts)\n    except Exception:\n        # Simple regex for ISO8601 with Z or offset\n        m = re.match(r\"^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?)(Z|[+-]\\d{2}:\\d{2})$\", ts)\n        if not m:\n            raise ValueError('Invalid timestamp')\n        base, offset = m.groups()\n        dt = datetime.datetime.fromisoformat(base)\n        if offset == 'Z':\n            tz = datetime.timezone.utc\n        else:\n            sign = 1 if offset[0] == '+' else -1\n            hours, minutes = map(int, offset[1:].split(':'))\n            tz = datetime.timezone(sign * datetime.timedelta(hours=hours, minutes=minutes))\n        dt = dt.replace(tzinfo=tz)\n    if dt.tzinfo is None:\n        raise ValueError('Timestamp not timezone-aware')\n    return dt.astimezone(datetime.timezone.utc)\n\ndef is_finite_decimal(val):\n    try:\n        d = decimal.Decimal(val)\n    except Exception:\n        return False\n    if not d.is_finite():\n        return False\n    if d < 0:\n        return False\n    return True\n\ndef main():\n    if len(sys.argv) != 2:\n        sys.stderr.write('Usage: python3 reconcile.py INPUT.csv\\n')\n        sys.exit(2)\n    path = sys.argv[1]\n    try:\n        f = open(path, newline='')\n    except Exception as e:\n        sys.stderr.write(f'Could not open file: {e}\\n')\n        sys.exit(2)\n    reader = csv.reader(f)\n    try:\n        header = next(reader)\n    except StopIteration:\n        sys.stderr.write('Empty file\\n')\n        sys.exit(1)\n    if header != ['tx_id', 'timestamp', 'amount', 'status']:\n        sys.stderr.write('Invalid header\\n')\n        sys.exit(1)\n    records = {}\n    failed_count = 0\n    for line_num, row in enumerate(reader, start=2):\n        if not row or all(cell.strip() == '' for cell in row):\n            continue  # ignore blank lines\n        if len(row) != 4:\n            sys.stderr.write(f'Row {line_num}: incorrect number of columns\\n')\n            sys.exit(1)\n        tx_id, ts_str, amt_str, status = row\n        if tx_id == '':\n            sys.stderr.write(f'Row {line_num}: empty transaction ID\\n')\n            sys.exit(1)\n        if status not in ('success', 'failed', 'pending'):\n            sys.stderr.write(f'Row {line_num}: invalid status\\n')\n            sys.exit(1)\n        try:\n            ts = parse_timestamp(ts_str)\n        except Exception:\n            sys.stderr.write(f'Row {line_num}: invalid timestamp\\n')\n            sys.exit(1)\n        if not is_finite_decimal(amt_str):\n            sys.stderr.write(f'Row {line_num}: invalid amount\\n')\n            sys.exit(1)\n        amount = decimal.Decimal(amt_str)\n        # Keep latest per tx_id\n        prev = records.get(tx_id)\n        if prev is None or ts > prev['ts'] or (ts == prev['ts'] and line_num > prev['line']):\n            records[tx_id] = {'ts': ts, 'amount': amount, 'status': status, 'line': line_num}\n    # Compute aggregates\n    total_valid_amount = decimal.Decimal('0')\n    valid_count = 0\n    for rec in records.values():\n        if rec['status'] == 'success':\n            total_valid_amount += rec['amount']\n            valid_count += 1\n        elif rec['status'] == 'failed':\n            failed_count += 1\n    result = {\n        'total_valid_amount': float(total_valid_amount),\n        'valid_count': valid_count,\n        'failed_count': failed_count\n    }\n    json.dump(result, sys.stdout)\n    sys.stdout.write('\\n')\n    sys.exit(0)\n\nif __name__ == '__main__':\n    main()\nEOF\n",
+      "duration": 1.0
+    }
+  },
+  {
+    "tool_call_id": "call_0_4",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "mv reconcile_fixed.py reconcile.py\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_0_5",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "chmod +x reconcile.py\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_0_6",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "cat > test.csv << 'EOF'\ntx_id,timestamp,amount,status\nA,2023-01-01T12:00:00+00:00,10.5,success\nB,2023-01-02T08:30:00-05:00,5.0,failed\nA,2023-01-01T13:00:00+00:00,20.0,success\nC,2023-01-03T09:00:00Z,7.25,pending\n\\nEOF\n",
+      "duration": 0.1
+    }
+  },
+  {
+    "tool_call_id": "call_0_7",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 reconcile.py test.csv\n",
+      "duration": 0.5
+    }
+  },
+  {
+    "tool_call_id": "call_0_8",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 reconcile.py INPUT.csv\n",
+      "duration": 2.0
+    }
+  },
+  {
+    "tool_call_id": "call_0_task_complete",
+    "function_name": "mark_task_complete",
+    "arguments": {}
+  },
+  {
+    "tool_call_id": "call_1_1",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 reconcile.py test.csv\n",
+      "duration": 0.5
+    }
+  },
+  {
+    "tool_call_id": "call_1_2",
+    "function_name": "bash_command",
+    "arguments": {
+      "keystrokes": "python3 reconcile.py INPUT.csv\n",
+      "duration": 2.0
+    }
+  },
+  {
+    "tool_call_id": "call_1_task_complete",
+    "function_name": "mark_task_complete",
+    "arguments": {}
+  }
+]

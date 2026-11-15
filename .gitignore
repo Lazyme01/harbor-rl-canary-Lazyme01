@@ -1,0 +1,42 @@
+
+# Harbor evaluation runs (summarized results are in jobs_summary/)
+jobs/
+
+# Environment variables and API keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
+
+# Local build artifacts
+build/
+dist/
+*.egg-info/
+
+# Recordings (video is shared via README link)
+*.mp4
+*.mkv
+*.mov
